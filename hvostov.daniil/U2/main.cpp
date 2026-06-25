@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
 
   if (argc < 2 || argc > 3) {
     std::cerr << "Error: invalid number of arguments\n";
-    return 0;
+    return 1;
   }
 
   for (int i = 1; i < argc; ++i) {
@@ -129,7 +129,11 @@ int main(int argc, char* argv[])
             if (end != std::string::npos && end > 0) {
               std::string desc = rest.substr(1, end - 1);
               if (!hvostov::redesc(db, id, desc)) {
-                std::cout << "<INVALID COMMAND>\n";
+                hvostov::PersonWithDesc pwd;
+                pwd.id = id;
+                pwd.info = desc;
+                pwd.hasDescription = true;
+                hvostov::addPersonWithDesc(db, pwd);
               }
             } else {
               std::cout << "<INVALID COMMAND>\n";
@@ -151,7 +155,11 @@ int main(int argc, char* argv[])
           if (start != std::string::npos && end != std::string::npos && start < end) {
             std::string desc = rest.substr(start + 1, end - start - 1);
             if (!hvostov::redesc(db, id, desc)) {
-              std::cout << "<INVALID COMMAND>\n";
+              hvostov::PersonWithDesc pwd;
+              pwd.id = id;
+              pwd.info = desc;
+              pwd.hasDescription = true;
+              hvostov::addPersonWithDesc(db, pwd);
             }
           } else {
             std::cout << "<INVALID COMMAND>\n";

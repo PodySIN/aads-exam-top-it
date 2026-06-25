@@ -1,6 +1,5 @@
 #include "types.hpp"
 #include <cctype>
-#include <string>
 #include <limits>
 
 std::istream& hvostov::operator>>(std::istream& in, Person& dest)
@@ -35,7 +34,9 @@ std::istream& hvostov::operator>>(std::istream& in, Person& dest)
   }
 
   input.info = input.info.substr(start, end - start);
+
   if (input.info.empty()) {
+    in.setstate(std::ios::failbit);
     return in;
   }
 

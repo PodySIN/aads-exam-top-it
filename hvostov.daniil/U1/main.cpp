@@ -12,7 +12,6 @@ int main(int argc, char* argv[])
   std::string outputFile = "";
 
   if (argc > 3) {
-    std::cerr << 0 << ' ' << 0 << "\n";
     return 0;
   }
 
@@ -43,7 +42,13 @@ int main(int argc, char* argv[])
 
   size_t idsCapacity = 10;
   size_t idsCount = 0;
-  size_t* usedIds = new size_t[idsCapacity];
+
+  size_t* usedIds = nullptr;
+  try {
+    usedIds = new size_t[idsCapacity];
+  } catch (...) {
+    delete[] persons;
+  }
 
   size_t successCount = 0;
   size_t ignoredCount = 0;

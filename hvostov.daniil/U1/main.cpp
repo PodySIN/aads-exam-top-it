@@ -1,9 +1,9 @@
-#include "types.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <cstring>
 #include <limits>
+#include <types.hpp>
 #include "utility.hpp"
 
 int main(int argc, char* argv[])

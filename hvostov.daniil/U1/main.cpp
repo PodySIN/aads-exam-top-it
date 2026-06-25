@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 
   if (argc > 3) {
     std::cerr << "To many arguments\n";
-    return 1;
+    return 2;
   }
   for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i]);
@@ -37,11 +37,13 @@ int main(int argc, char* argv[])
     }
   }
 
-  std::ifstream inFile;
-  std::ofstream outFile;
+  std::vector< hvostov::Person > persons;
+  std::set< size_t > usedIds;
+  size_t successCount = 0;
+  size_t ignoredCount = 0;
 
+  std::ifstream inFile;
   std::istream* in = &std::cin;
-  std::ostream* out = &std::cout;
 
   if (!inputFile.empty()) {
     inFile.open(inputFile);
@@ -52,20 +54,6 @@ int main(int argc, char* argv[])
     in = &inFile;
   }
 
-  if (!outputFile.empty()) {
-    outFile.open(outputFile);
-    if (!outFile.is_open()) {
-      std::cerr << "Error: cannot open output file\n";
-      return 2;
-    }
-    out = &outFile;
-  }
-
-  std::vector< hvostov::Person > persons;
-  std::set< size_t > usedIds;
-  size_t successCount = 0;
-  size_t ignoredCount = 0;
-
   while (in->good() && !in->eof()) {
     hvostov::Person person;
 
@@ -74,7 +62,6 @@ int main(int argc, char* argv[])
         persons.push_back(person);
         usedIds.insert(person.id);
         successCount++;
-        *out << person << '\n';
       } else {
         ignoredCount++;
       }
@@ -89,7 +76,29 @@ int main(int argc, char* argv[])
     }
   }
 
-  std::cerr << successCount << ' ' << ignoredCount << '\n';
+  if (inFile.is_open()) {
+    inFile.close();
+  }
+
+  std::ofstream outFile;
+  std::ostream* out = &std::cout;
+
+  if (!outputFile.empty()) {
+    outFile.open(outputFile);
+    if (!outFile.is_open()) {
+      std::cerr << "Error: cannot open output file\n";
+      return 2;
+    }
+    out = &outFile;
+  }
+
+  for (const auto& person : persons) {
+    *out << person << '\n';
+  }
+
+  if (successCount > 0 || ignoredCount > 0) {
+    std::cerr << successCount << ' ' << ignoredCount << '\n';
+  }
 
   return 0;
 }

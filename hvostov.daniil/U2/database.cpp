@@ -326,34 +326,52 @@ void hvostov::less(const Database& db, size_t time, size_t id, std::ostream& out
     return;
   }
 
-  size_t* uniqueIds = nullptr;
-  size_t uniqueCount = 0;
-  size_t uniqueCap = 8;
+  size_t meetCount = 0;
+  for (size_t i = 0; i < db.meetingsCount; ++i) {
+    if (db.meetings[i].duration < time) {
+      if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
+        meetCount++;
+      }
+    }
+  }
 
+  if (meetCount == 0) {
+    out << '\n';
+    return;
+  }
+
+  std::pair< size_t, size_t >* result = nullptr;
   try {
-    uniqueIds = new size_t[uniqueCap];
-
+    result = new std::pair< size_t, size_t >[meetCount];
+    size_t idx = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].duration < time) {
-        if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
-          size_t partner = (db.meetings[i].id1 == id) ? db.meetings[i].id2 : db.meetings[i].id1;
-          if (!arrayContains(uniqueIds, uniqueCount, partner)) {
-            if (uniqueCount >= uniqueCap) {
-              uniqueIds = expandArray(uniqueIds, uniqueCount, uniqueCap * 2);
-              uniqueCap *= 2;
-            }
-            uniqueIds[uniqueCount++] = partner;
-          }
+        if (db.meetings[i].id1 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id2, db.meetings[i].duration);
+        } else if (db.meetings[i].id2 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id1, db.meetings[i].duration);
         }
       }
     }
 
-    sortArray(uniqueIds, uniqueCount);
-    printArray(uniqueIds, uniqueCount, out);
+    for (size_t i = 0; i < meetCount; ++i) {
+      for (size_t j = i + 1; j < meetCount; ++j) {
+        if (result[i].first > result[j].first ||
+            (result[i].first == result[j].first && result[i].second > result[j].second)) {
+          std::pair< size_t, size_t > tmp = result[i];
+          result[i] = result[j];
+          result[j] = tmp;
+        }
+      }
+    }
 
-    delete[] uniqueIds;
+    for (size_t i = 0; i < meetCount; ++i) {
+      out << result[i].first << ' ' << result[i].second << '\n';
+    }
+
+    delete[] result;
   } catch (...) {
-    delete[] uniqueIds;
+    delete[] result;
     throw;
   }
 }
@@ -365,34 +383,52 @@ void hvostov::greater(const Database& db, size_t time, size_t id, std::ostream& 
     return;
   }
 
-  size_t* uniqueIds = nullptr;
-  size_t uniqueCount = 0;
-  size_t uniqueCap = 8;
+  size_t meetCount = 0;
+  for (size_t i = 0; i < db.meetingsCount; ++i) {
+    if (db.meetings[i].duration > time) {
+      if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
+        meetCount++;
+      }
+    }
+  }
 
+  if (meetCount == 0) {
+    out << '\n';
+    return;
+  }
+
+  std::pair< size_t, size_t >* result = nullptr;
   try {
-    uniqueIds = new size_t[uniqueCap];
-
+    result = new std::pair< size_t, size_t >[meetCount];
+    size_t idx = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].duration > time) {
-        if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
-          size_t partner = (db.meetings[i].id1 == id) ? db.meetings[i].id2 : db.meetings[i].id1;
-          if (!arrayContains(uniqueIds, uniqueCount, partner)) {
-            if (uniqueCount >= uniqueCap) {
-              uniqueIds = expandArray(uniqueIds, uniqueCount, uniqueCap * 2);
-              uniqueCap *= 2;
-            }
-            uniqueIds[uniqueCount++] = partner;
-          }
+        if (db.meetings[i].id1 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id2, db.meetings[i].duration);
+        } else if (db.meetings[i].id2 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id1, db.meetings[i].duration);
         }
       }
     }
 
-    sortArray(uniqueIds, uniqueCount);
-    printArray(uniqueIds, uniqueCount, out);
+    for (size_t i = 0; i < meetCount; ++i) {
+      for (size_t j = i + 1; j < meetCount; ++j) {
+        if (result[i].first > result[j].first ||
+            (result[i].first == result[j].first && result[i].second > result[j].second)) {
+          std::pair< size_t, size_t > tmp = result[i];
+          result[i] = result[j];
+          result[j] = tmp;
+        }
+      }
+    }
 
-    delete[] uniqueIds;
+    for (size_t i = 0; i < meetCount; ++i) {
+      out << result[i].first << ' ' << result[i].second << '\n';
+    }
+
+    delete[] result;
   } catch (...) {
-    delete[] uniqueIds;
+    delete[] result;
     throw;
   }
 }
@@ -405,9 +441,15 @@ void hvostov::outPersons(const Database& db, const std::string& filename)
     return;
   }
 
+  bool hasAny = false;
   for (size_t i = 0; i < db.personsCount; ++i) {
     if (db.persons[i].hasDescription) {
       outFile << db.persons[i].id << ' ' << db.persons[i].info << '\n';
+      hasAny = true;
     }
+  }
+
+  if (!hasAny) {
+    outFile << '\n';
   }
 }

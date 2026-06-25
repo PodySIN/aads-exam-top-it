@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
 
   if (argc < 2 || argc > 3) {
     std::cerr << "Error: invalid number of arguments\n";
-    return 1;
+    return 0;
   }
 
   for (int i = 1; i < argc; ++i) {
@@ -115,7 +115,28 @@ int main(int argc, char* argv[])
       } else if (command == "desc") {
         size_t id;
         if (iss >> id) {
-          hvostov::desc(db, id, std::cout);
+          std::string rest;
+          std::getline(iss, rest);
+
+          size_t start = 0;
+          while (start < rest.length() && std::isspace(rest[start])) {
+            start++;
+          }
+          rest = rest.substr(start);
+
+          if (!rest.empty() && rest[0] == '"') {
+            size_t end = rest.rfind('"');
+            if (end != std::string::npos && end > 0) {
+              std::string desc = rest.substr(1, end - 1);
+              if (!hvostov::redesc(db, id, desc)) {
+                std::cout << "<INVALID COMMAND>\n";
+              }
+            } else {
+              std::cout << "<INVALID COMMAND>\n";
+            }
+          } else {
+            hvostov::desc(db, id, std::cout);
+          }
         } else {
           std::cout << "<INVALID COMMAND>\n";
         }
@@ -138,7 +159,7 @@ int main(int argc, char* argv[])
         } else {
           std::cout << "<INVALID COMMAND>\n";
         }
-      } else if (command == "meet") {
+      } else if (command == "meet" || command == "meets") {
         size_t id;
         if (iss >> id) {
           hvostov::meets(db, id, std::cout);

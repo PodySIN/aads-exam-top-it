@@ -1,8 +1,5 @@
 #include "database.hpp"
 #include <fstream>
-#include <algorithm>
-#include <vector>
-#include <set>
 
 namespace hvostov {
   void initDatabase(Database& db)
@@ -24,23 +21,28 @@ namespace hvostov {
 
   void addPerson(Database& db, const Person& p)
   {
-    // Проверяем, существует ли уже такое лицо
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (db.persons[i].id == p.id) {
         return;
       }
     }
 
-    // Расширяем массив при необходимости
     if (db.personsCount >= db.personsCapacity) {
       size_t newCapacity = db.personsCapacity == 0 ? 8 : db.personsCapacity * 2;
-      Person* newPersons = new Person[newCapacity];
-      for (size_t i = 0; i < db.personsCount; ++i) {
-        newPersons[i] = db.persons[i];
+      Person* newPersons = nullptr;
+
+      try {
+        newPersons = new Person[newCapacity];
+        for (size_t i = 0; i < db.personsCount; ++i) {
+          newPersons[i] = db.persons[i];
+        }
+        delete[] db.persons;
+        db.persons = newPersons;
+        db.personsCapacity = newCapacity;
+      } catch (...) {
+        delete[] newPersons;
+        throw;
       }
-      delete[] db.persons;
-      db.persons = newPersons;
-      db.personsCapacity = newCapacity;
     }
 
     db.persons[db.personsCount++] = p;
@@ -48,21 +50,26 @@ namespace hvostov {
 
   void addMeeting(Database& db, const Meeting& m)
   {
-    // Расширяем массив при необходимости
     if (db.meetingsCount >= db.meetingsCapacity) {
       size_t newCapacity = db.meetingsCapacity == 0 ? 8 : db.meetingsCapacity * 2;
-      Meeting* newMeetings = new Meeting[newCapacity];
-      for (size_t i = 0; i < db.meetingsCount; ++i) {
-        newMeetings[i] = db.meetings[i];
+      Meeting* newMeetings = nullptr;
+
+      try {
+        newMeetings = new Meeting[newCapacity];
+        for (size_t i = 0; i < db.meetingsCount; ++i) {
+          newMeetings[i] = db.meetings[i];
+        }
+        delete[] db.meetings;
+        db.meetings = newMeetings;
+        db.meetingsCapacity = newCapacity;
+      } catch (...) {
+        delete[] newMeetings;
+        throw;
       }
-      delete[] db.meetings;
-      db.meetings = newMeetings;
-      db.meetingsCapacity = newCapacity;
     }
 
     db.meetings[db.meetingsCount++] = m;
 
-    // Добавляем участников, если их нет
     Person p1 = {m.id1, "", false};
     Person p2 = {m.id2, "", false};
     addPerson(db, p1);
@@ -85,17 +92,55 @@ namespace hvostov {
     return p != nullptr && p->hasDescription;
   }
 
+  struct PairComparator {
+    bool operator()(const std::pair< size_t, size_t >& a, const std::pair< size_t, size_t >& b) const
+    {
+      if (a.first != b.first)
+        return a.first < b.first;
+      return a.second < b.second;
+    }
+  };
+
   void anons(const Database& db, std::ostream& out)
   {
-    std::vector< size_t > anonIds;
+    size_t anonCount = 0;
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (!db.persons[i].hasDescription) {
-        anonIds.push_back(db.persons[i].id);
+        anonCount++;
       }
     }
-    std::sort(anonIds.begin(), anonIds.end());
-    for (size_t id : anonIds) {
-      out << id << '\n';
+
+    if (anonCount == 0)
+      return;
+
+    size_t* anonIds = nullptr;
+    try {
+      anonIds = new size_t[anonCount];
+      size_t idx = 0;
+      for (size_t i = 0; i < db.personsCount; ++i) {
+        if (!db.persons[i].hasDescription) {
+          anonIds[idx++] = db.persons[i].id;
+        }
+      }
+
+      for (size_t i = 0; i < anonCount; ++i) {
+        for (size_t j = i + 1; j < anonCount; ++j) {
+          if (anonIds[i] > anonIds[j]) {
+            size_t tmp = anonIds[i];
+            anonIds[i] = anonIds[j];
+            anonIds[j] = tmp;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < anonCount; ++i) {
+        out << anonIds[i] << '\n';
+      }
+
+      delete[] anonIds;
+    } catch (...) {
+      delete[] anonIds;
+      throw;
     }
   }
 
@@ -109,7 +154,6 @@ namespace hvostov {
     if (anon->hasDescription || !real->hasDescription)
       return false;
 
-    // Переносим встречи
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].id1 == anonId)
         db.meetings[i].id1 = realId;
@@ -117,7 +161,6 @@ namespace hvostov {
         db.meetings[i].id2 = realId;
     }
 
-    // Удаляем встречи с самим собой
     size_t writeIdx = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].id1 != db.meetings[i].id2) {
@@ -126,7 +169,6 @@ namespace hvostov {
     }
     db.meetingsCount = writeIdx;
 
-    // Удаляем anonId из persons
     writeIdx = 0;
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (db.persons[i].id != anonId) {
@@ -169,18 +211,47 @@ namespace hvostov {
       return;
     }
 
-    std::vector< std::pair< size_t, size_t > > result;
+    size_t meetCount = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
-      if (db.meetings[i].id1 == id) {
-        result.push_back({db.meetings[i].id2, db.meetings[i].duration});
-      } else if (db.meetings[i].id2 == id) {
-        result.push_back({db.meetings[i].id1, db.meetings[i].duration});
+      if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
+        meetCount++;
       }
     }
 
-    std::sort(result.begin(), result.end());
-    for (const auto& r : result) {
-      out << r.first << ' ' << r.second << '\n';
+    if (meetCount == 0)
+      return;
+
+    std::pair< size_t, size_t >* result = nullptr;
+    try {
+      result = new std::pair< size_t, size_t >[meetCount];
+      size_t idx = 0;
+      for (size_t i = 0; i < db.meetingsCount; ++i) {
+        if (db.meetings[i].id1 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id2, db.meetings[i].duration);
+        } else if (db.meetings[i].id2 == id) {
+          result[idx++] = std::make_pair(db.meetings[i].id1, db.meetings[i].duration);
+        }
+      }
+
+      PairComparator comp;
+      for (size_t i = 0; i < meetCount; ++i) {
+        for (size_t j = i + 1; j < meetCount; ++j) {
+          if (comp(result[j], result[i])) {
+            std::pair< size_t, size_t > tmp = result[i];
+            result[i] = result[j];
+            result[j] = tmp;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < meetCount; ++i) {
+        out << result[i].first << ' ' << result[i].second << '\n';
+      }
+
+      delete[] result;
+    } catch (...) {
+      delete[] result;
+      throw;
     }
   }
 
@@ -191,28 +262,127 @@ namespace hvostov {
       return;
     }
 
-    std::set< size_t > meets1, meets2;
-    for (size_t i = 0; i < db.meetingsCount; ++i) {
-      if (db.meetings[i].id1 == id1)
-        meets1.insert(db.meetings[i].id2);
-      else if (db.meetings[i].id2 == id1)
-        meets1.insert(db.meetings[i].id1);
-      if (db.meetings[i].id1 == id2)
-        meets2.insert(db.meetings[i].id2);
-      else if (db.meetings[i].id2 == id2)
-        meets2.insert(db.meetings[i].id1);
-    }
+    size_t* meets1 = nullptr;
+    size_t meets1Count = 0;
+    size_t meets1Cap = 0;
 
-    std::vector< size_t > common;
-    for (size_t id : meets1) {
-      if (meets2.find(id) != meets2.end()) {
-        common.push_back(id);
+    size_t* meets2 = nullptr;
+    size_t meets2Count = 0;
+    size_t meets2Cap = 0;
+
+    try {
+      meets1Cap = 8;
+      meets1 = new size_t[meets1Cap];
+      meets2Cap = 8;
+      meets2 = new size_t[meets2Cap];
+
+      for (size_t i = 0; i < db.meetingsCount; ++i) {
+        size_t partner = 0;
+        bool found = false;
+
+        if (db.meetings[i].id1 == id1) {
+          partner = db.meetings[i].id2;
+          found = true;
+        } else if (db.meetings[i].id2 == id1) {
+          partner = db.meetings[i].id1;
+          found = true;
+        }
+
+        if (found) {
+          bool exists = false;
+          for (size_t j = 0; j < meets1Count; ++j) {
+            if (meets1[j] == partner) {
+              exists = true;
+              break;
+            }
+          }
+          if (!exists) {
+            if (meets1Count >= meets1Cap) {
+              size_t* tmp = new size_t[meets1Cap * 2];
+              for (size_t j = 0; j < meets1Count; ++j)
+                tmp[j] = meets1[j];
+              delete[] meets1;
+              meets1 = tmp;
+              meets1Cap *= 2;
+            }
+            meets1[meets1Count++] = partner;
+          }
+        }
+
+        found = false;
+        if (db.meetings[i].id1 == id2) {
+          partner = db.meetings[i].id2;
+          found = true;
+        } else if (db.meetings[i].id2 == id2) {
+          partner = db.meetings[i].id1;
+          found = true;
+        }
+
+        if (found) {
+          bool exists = false;
+          for (size_t j = 0; j < meets2Count; ++j) {
+            if (meets2[j] == partner) {
+              exists = true;
+              break;
+            }
+          }
+          if (!exists) {
+            if (meets2Count >= meets2Cap) {
+              size_t* tmp = new size_t[meets2Cap * 2];
+              for (size_t j = 0; j < meets2Count; ++j)
+                tmp[j] = meets2[j];
+              delete[] meets2;
+              meets2 = tmp;
+              meets2Cap *= 2;
+            }
+            meets2[meets2Count++] = partner;
+          }
+        }
       }
-    }
 
-    std::sort(common.begin(), common.end());
-    for (size_t id : common) {
-      out << id << '\n';
+      size_t* common = nullptr;
+      size_t commonCount = 0;
+      size_t commonCap = 8;
+      common = new size_t[commonCap];
+
+      for (size_t i = 0; i < meets1Count; ++i) {
+        for (size_t j = 0; j < meets2Count; ++j) {
+          if (meets1[i] == meets2[j]) {
+            if (commonCount >= commonCap) {
+              size_t* tmp = new size_t[commonCap * 2];
+              for (size_t k = 0; k < commonCount; ++k)
+                tmp[k] = common[k];
+              delete[] common;
+              common = tmp;
+              commonCap *= 2;
+            }
+            common[commonCount++] = meets1[i];
+            break;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < commonCount; ++i) {
+        for (size_t j = i + 1; j < commonCount; ++j) {
+          if (common[i] > common[j]) {
+            size_t tmp = common[i];
+            common[i] = common[j];
+            common[j] = tmp;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < commonCount; ++i) {
+        out << common[i] << '\n';
+      }
+
+      delete[] common;
+      delete[] meets1;
+      delete[] meets2;
+    } catch (...) {
+      delete[] meets1;
+      delete[] meets2;
+      throw;
     }
   }
 
@@ -223,20 +393,51 @@ namespace hvostov {
       return;
     }
 
-    std::vector< std::pair< size_t, size_t > > result;
+    size_t meetCount = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].duration < time) {
-        if (db.meetings[i].id1 == id) {
-          result.push_back({db.meetings[i].id2, db.meetings[i].duration});
-        } else if (db.meetings[i].id2 == id) {
-          result.push_back({db.meetings[i].id1, db.meetings[i].duration});
+        if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
+          meetCount++;
         }
       }
     }
 
-    std::sort(result.begin(), result.end());
-    for (const auto& r : result) {
-      out << r.first << ' ' << r.second << '\n';
+    if (meetCount == 0)
+      return;
+
+    std::pair< size_t, size_t >* result = nullptr;
+    try {
+      result = new std::pair< size_t, size_t >[meetCount];
+      size_t idx = 0;
+      for (size_t i = 0; i < db.meetingsCount; ++i) {
+        if (db.meetings[i].duration < time) {
+          if (db.meetings[i].id1 == id) {
+            result[idx++] = std::make_pair(db.meetings[i].id2, db.meetings[i].duration);
+          } else if (db.meetings[i].id2 == id) {
+            result[idx++] = std::make_pair(db.meetings[i].id1, db.meetings[i].duration);
+          }
+        }
+      }
+
+      PairComparator comp;
+      for (size_t i = 0; i < meetCount; ++i) {
+        for (size_t j = i + 1; j < meetCount; ++j) {
+          if (comp(result[j], result[i])) {
+            std::pair< size_t, size_t > tmp = result[i];
+            result[i] = result[j];
+            result[j] = tmp;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < meetCount; ++i) {
+        out << result[i].first << ' ' << result[i].second << '\n';
+      }
+
+      delete[] result;
+    } catch (...) {
+      delete[] result;
+      throw;
     }
   }
 
@@ -247,20 +448,51 @@ namespace hvostov {
       return;
     }
 
-    std::vector< std::pair< size_t, size_t > > result;
+    size_t meetCount = 0;
     for (size_t i = 0; i < db.meetingsCount; ++i) {
       if (db.meetings[i].duration > time) {
-        if (db.meetings[i].id1 == id) {
-          result.push_back({db.meetings[i].id2, db.meetings[i].duration});
-        } else if (db.meetings[i].id2 == id) {
-          result.push_back({db.meetings[i].id1, db.meetings[i].duration});
+        if (db.meetings[i].id1 == id || db.meetings[i].id2 == id) {
+          meetCount++;
         }
       }
     }
 
-    std::sort(result.begin(), result.end());
-    for (const auto& r : result) {
-      out << r.first << ' ' << r.second << '\n';
+    if (meetCount == 0)
+      return;
+
+    std::pair< size_t, size_t >* result = nullptr;
+    try {
+      result = new std::pair< size_t, size_t >[meetCount];
+      size_t idx = 0;
+      for (size_t i = 0; i < db.meetingsCount; ++i) {
+        if (db.meetings[i].duration > time) {
+          if (db.meetings[i].id1 == id) {
+            result[idx++] = std::make_pair(db.meetings[i].id2, db.meetings[i].duration);
+          } else if (db.meetings[i].id2 == id) {
+            result[idx++] = std::make_pair(db.meetings[i].id1, db.meetings[i].duration);
+          }
+        }
+      }
+
+      PairComparator comp;
+      for (size_t i = 0; i < meetCount; ++i) {
+        for (size_t j = i + 1; j < meetCount; ++j) {
+          if (comp(result[j], result[i])) {
+            std::pair< size_t, size_t > tmp = result[i];
+            result[i] = result[j];
+            result[j] = tmp;
+          }
+        }
+      }
+
+      for (size_t i = 0; i < meetCount; ++i) {
+        out << result[i].first << ' ' << result[i].second << '\n';
+      }
+
+      delete[] result;
+    } catch (...) {
+      delete[] result;
+      throw;
     }
   }
 

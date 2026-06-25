@@ -44,140 +44,142 @@ int main(int argc, char* argv[])
   hvostov::Database db;
   hvostov::initDatabase(db);
 
-  // Читаем файл с физическими лицами
-  if (!personsFile.empty()) {
-    std::ifstream inFile(personsFile);
-    if (!inFile.is_open()) {
-      std::cerr << "Error: cannot open persons file\n";
+  try {
+    if (!personsFile.empty()) {
+      std::ifstream inFile(personsFile);
+      if (!inFile.is_open()) {
+        std::cerr << "Error: cannot open persons file\n";
+        hvostov::freeDatabase(db);
+        return 2;
+      }
+
+      hvostov::Person person;
+      while (inFile >> person) {
+        hvostov::addPerson(db, person);
+      }
+    }
+
+    std::ifstream dataFileStream(dataFile);
+    if (!dataFileStream.is_open()) {
+      std::cerr << "Error: cannot open data file\n";
       hvostov::freeDatabase(db);
       return 2;
     }
 
-    hvostov::Person person;
-    while (inFile >> person) {
-      hvostov::addPerson(db, person);
-    }
-  }
+    std::string line;
+    while (std::getline(dataFileStream, line)) {
+      if (line.empty())
+        continue;
 
-  // Читаем файл с встречами
-  std::ifstream dataFileStream(dataFile);
-  if (!dataFileStream.is_open()) {
-    std::cerr << "Error: cannot open data file\n";
-    hvostov::freeDatabase(db);
-    return 2;
-  }
+      std::istringstream iss(line);
+      hvostov::Meeting meeting;
 
-  std::string line;
-  while (std::getline(dataFileStream, line)) {
-    if (line.empty())
-      continue;
-
-    std::istringstream iss(line);
-    hvostov::Meeting meeting;
-
-    if (iss >> meeting) {
-      hvostov::addMeeting(db, meeting);
-    } else {
-      std::istringstream iss2(line);
-      size_t id1, id2, duration;
-      if (iss2 >> id1 >> id2 >> duration) {
-        if (id1 != id2) {
+      if (iss >> meeting) {
+        hvostov::addMeeting(db, meeting);
+      } else {
+        std::istringstream iss2(line);
+        size_t id1, id2, duration;
+        if (iss2 >> id1 >> id2 >> duration) {
+          if (id1 != id2) {
+            std::cerr << "Error: invalid meeting data\n";
+            hvostov::freeDatabase(db);
+            return 3;
+          }
+        } else {
           std::cerr << "Error: invalid meeting data\n";
           hvostov::freeDatabase(db);
           return 3;
         }
-      } else {
-        std::cerr << "Error: invalid meeting data\n";
-        hvostov::freeDatabase(db);
-        return 3;
       }
     }
-  }
 
-  // Обработка команд
-  while (std::getline(std::cin, line)) {
-    if (line.empty())
-      continue;
+    while (std::getline(std::cin, line)) {
+      if (line.empty())
+        continue;
 
-    std::istringstream iss(line);
-    std::string command;
-    iss >> command;
+      std::istringstream iss(line);
+      std::string command;
+      iss >> command;
 
-    if (command == "anons") {
-      hvostov::anons(db, std::cout);
-    } else if (command == "deanon") {
-      size_t anonId, realId;
-      if (iss >> anonId >> realId) {
-        if (!hvostov::deanon(db, anonId, realId)) {
-          std::cout << "<INVALID COMMAND>\n";
-        }
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "desc") {
-      size_t id;
-      if (iss >> id) {
-        hvostov::desc(db, id, std::cout);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "redesc") {
-      size_t id;
-      if (iss >> id) {
-        std::string rest;
-        std::getline(iss, rest);
-
-        size_t start = rest.find('"');
-        size_t end = rest.rfind('"');
-        if (start != std::string::npos && end != std::string::npos && start < end) {
-          std::string desc = rest.substr(start + 1, end - start - 1);
-          if (!hvostov::redesc(db, id, desc)) {
+      if (command == "anons") {
+        hvostov::anons(db, std::cout);
+      } else if (command == "deanon") {
+        size_t anonId, realId;
+        if (iss >> anonId >> realId) {
+          if (!hvostov::deanon(db, anonId, realId)) {
             std::cout << "<INVALID COMMAND>\n";
           }
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "desc") {
+        size_t id;
+        if (iss >> id) {
+          hvostov::desc(db, id, std::cout);
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "redesc") {
+        size_t id;
+        if (iss >> id) {
+          std::string rest;
+          std::getline(iss, rest);
+
+          size_t start = rest.find('"');
+          size_t end = rest.rfind('"');
+          if (start != std::string::npos && end != std::string::npos && start < end) {
+            std::string desc = rest.substr(start + 1, end - start - 1);
+            if (!hvostov::redesc(db, id, desc)) {
+              std::cout << "<INVALID COMMAND>\n";
+            }
+          } else {
+            std::cout << "<INVALID COMMAND>\n";
+          }
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "meets") {
+        size_t id;
+        if (iss >> id) {
+          hvostov::meets(db, id, std::cout);
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "commons") {
+        size_t id1, id2;
+        if (iss >> id1 >> id2) {
+          hvostov::commons(db, id1, id2, std::cout);
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "less") {
+        size_t time, id;
+        if (iss >> time >> id) {
+          hvostov::less(db, time, id, std::cout);
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "greater") {
+        size_t time, id;
+        if (iss >> time >> id) {
+          hvostov::greater(db, time, id, std::cout);
+        } else {
+          std::cout << "<INVALID COMMAND>\n";
+        }
+      } else if (command == "out-persons") {
+        std::string filename;
+        if (iss >> filename) {
+          hvostov::outPersons(db, filename);
         } else {
           std::cout << "<INVALID COMMAND>\n";
         }
       } else {
         std::cout << "<INVALID COMMAND>\n";
       }
-    } else if (command == "meets") {
-      size_t id;
-      if (iss >> id) {
-        hvostov::meets(db, id, std::cout);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "commons") {
-      size_t id1, id2;
-      if (iss >> id1 >> id2) {
-        hvostov::commons(db, id1, id2, std::cout);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "less") {
-      size_t time, id;
-      if (iss >> time >> id) {
-        hvostov::less(db, time, id, std::cout);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "greater") {
-      size_t time, id;
-      if (iss >> time >> id) {
-        hvostov::greater(db, time, id, std::cout);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else if (command == "out-persons") {
-      std::string filename;
-      if (iss >> filename) {
-        hvostov::outPersons(db, filename);
-      } else {
-        std::cout << "<INVALID COMMAND>\n";
-      }
-    } else {
-      std::cout << "<INVALID COMMAND>\n";
     }
+  } catch (...) {
+    hvostov::freeDatabase(db);
+    return 1;
   }
 
   hvostov::freeDatabase(db);

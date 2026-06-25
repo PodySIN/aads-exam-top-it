@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <istream>
+#include <string>
 
 namespace hvostov {
   struct Person {
@@ -12,6 +13,6 @@ namespace hvostov {
 
   std::istream& operator>>(std::istream& in, Person& dest);
   std::ostream& operator<<(std::ostream& out, const Person& dest);
-
 }
+
 #endif

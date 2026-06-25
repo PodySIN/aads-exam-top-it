@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
         } else {
           std::cout << "<INVALID COMMAND>\n";
         }
-      } else if (command == "meets") {
+      } else if (command == "meet") {
         size_t id;
         if (iss >> id) {
           hvostov::meets(db, id, std::cout);

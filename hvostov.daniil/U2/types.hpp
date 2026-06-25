@@ -1,12 +1,11 @@
-#ifndef TYPES_HPP
-#define TYPES_HPP
+#ifndef U2_TYPES_HPP
+#define U2_TYPES_HPP
 
+#include <types.hpp>
 #include <iostream>
-#include <istream>
-#include <string>
 
 namespace hvostov {
-  struct Person {
+  struct PersonWithDesc {
     size_t id;
     std::string info;
     bool hasDescription;
@@ -19,7 +18,7 @@ namespace hvostov {
   };
 
   struct Database {
-    Person* persons;
+    PersonWithDesc* persons;
     size_t personsCount;
     size_t personsCapacity;
     Meeting* meetings;
@@ -27,8 +26,6 @@ namespace hvostov {
     size_t meetingsCapacity;
   };
 
-  std::istream& operator>>(std::istream& in, Person& dest);
-  std::ostream& operator<<(std::ostream& out, const Person& dest);
   std::istream& operator>>(std::istream& in, Meeting& dest);
 }
 

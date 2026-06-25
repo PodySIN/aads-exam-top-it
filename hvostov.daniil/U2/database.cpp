@@ -21,6 +21,15 @@ namespace hvostov {
 
   void addPerson(Database& db, const Person& p)
   {
+    PersonWithDesc pwd;
+    pwd.id = p.id;
+    pwd.info = p.info;
+    pwd.hasDescription = true;
+    addPersonWithDesc(db, pwd);
+  }
+
+  void addPersonWithDesc(Database& db, const PersonWithDesc& p)
+  {
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (db.persons[i].id == p.id) {
         return;
@@ -29,10 +38,10 @@ namespace hvostov {
 
     if (db.personsCount >= db.personsCapacity) {
       size_t newCapacity = db.personsCapacity == 0 ? 8 : db.personsCapacity * 2;
-      Person* newPersons = nullptr;
+      PersonWithDesc* newPersons = nullptr;
 
       try {
-        newPersons = new Person[newCapacity];
+        newPersons = new PersonWithDesc[newCapacity];
         for (size_t i = 0; i < db.personsCount; ++i) {
           newPersons[i] = db.persons[i];
         }
@@ -70,13 +79,13 @@ namespace hvostov {
 
     db.meetings[db.meetingsCount++] = m;
 
-    Person p1 = {m.id1, "", false};
-    Person p2 = {m.id2, "", false};
-    addPerson(db, p1);
-    addPerson(db, p2);
+    PersonWithDesc p1 = {m.id1, "", false};
+    PersonWithDesc p2 = {m.id2, "", false};
+    addPersonWithDesc(db, p1);
+    addPersonWithDesc(db, p2);
   }
 
-  const Person* findPerson(const Database& db, size_t id)
+  const PersonWithDesc* findPerson(const Database& db, size_t id)
   {
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (db.persons[i].id == id) {
@@ -88,7 +97,7 @@ namespace hvostov {
 
   bool hasDescription(const Database& db, size_t id)
   {
-    const Person* p = findPerson(db, id);
+    const PersonWithDesc* p = findPerson(db, id);
     return p != nullptr && p->hasDescription;
   }
 
@@ -146,8 +155,8 @@ namespace hvostov {
 
   bool deanon(Database& db, size_t anonId, size_t realId)
   {
-    const Person* anon = findPerson(db, anonId);
-    const Person* real = findPerson(db, realId);
+    const PersonWithDesc* anon = findPerson(db, anonId);
+    const PersonWithDesc* real = findPerson(db, realId);
 
     if (!anon || !real)
       return false;
@@ -182,7 +191,7 @@ namespace hvostov {
 
   void desc(const Database& db, size_t id, std::ostream& out)
   {
-    const Person* p = findPerson(db, id);
+    const PersonWithDesc* p = findPerson(db, id);
     if (!p) {
       out << "<INVALID COMMAND>\n";
       return;
@@ -196,7 +205,7 @@ namespace hvostov {
 
   bool redesc(Database& db, size_t id, const std::string& desc)
   {
-    Person* p = const_cast< Person* >(findPerson(db, id));
+    PersonWithDesc* p = const_cast< PersonWithDesc* >(findPerson(db, id));
     if (!p)
       return false;
     p->info = desc;
@@ -506,7 +515,7 @@ namespace hvostov {
 
     for (size_t i = 0; i < db.personsCount; ++i) {
       if (db.persons[i].hasDescription) {
-        outFile << db.persons[i] << '\n';
+        outFile << db.persons[i].id << ' ' << db.persons[i].info << '\n';
       }
     }
   }

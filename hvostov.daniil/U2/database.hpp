@@ -7,13 +7,11 @@
 namespace hvostov {
   void initDatabase(Database& db);
   void freeDatabase(Database& db);
-
   void addPerson(Database& db, const Person& p);
+  void addPersonWithDesc(Database& db, const PersonWithDesc& p);
   void addMeeting(Database& db, const Meeting& m);
-
-  const Person* findPerson(const Database& db, size_t id);
+  const PersonWithDesc* findPerson(const Database& db, size_t id);
   bool hasDescription(const Database& db, size_t id);
-
   void anons(const Database& db, std::ostream& out);
   bool deanon(Database& db, size_t anonId, size_t realId);
   void desc(const Database& db, size_t id, std::ostream& out);
